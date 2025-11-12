@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetLab Pro - Network Intelligence Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+        }
+
+        .logo-text h1 {
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-text p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            background: rgba(30, 41, 59, 0.6);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn.active {
+            animation: pulse 2s infinite;
+        }
+
+        /* Alert */
+        .alert {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.2) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            animation: slideInDown 0.4s ease;
+        }
+
+        .alert.show {
+            display: flex;
+        }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .help-tooltip {
+            display: block;
+            position: relative;
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--card-color-1), var(--card-color-2));
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            border-color: rgba(148, 163, 184, 0.4);
+        }
+
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 24px;
+        }
+
+        .kpi-label {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .kpi-unit {
+            font-size: 16px;
+            color: #94a3b8;
+            margin-left: 4px;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .chart-header h3 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .chart-icon {
+            font-size: 20px;
+        }
+
+        /* Bottom Grid */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .data-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            animation: fadeIn 1s ease;
+        }
+
+        .data-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .data-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .data-list::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.4);
+            border-radius: 10px;
+        }
+
+        .data-list::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 10px;
+        }
+
+        .talker-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .talker-item:hover {
+            background: rgba(30, 41, 59, 0.6);
+            transform: translateX(4px);
+        }
+
+        .packet-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(30, 41, 59, 0.2);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .protocol-badge {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .protocol-tcp { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .protocol-udp { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .protocol-icmp { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+
+        .protocol-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
+            50% { box-shadow: 0 4px 32px rgba(16, 185, 129, 0.6); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo-icon">⚡</div>
+                <div class="logo-text">
+                    <h1>NetLab Pro</h1>
+                    <p>Real-time Network Intelligence Platform</p>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button id="btnSniff" class="btn btn-success">
+                    <span>📡</span>
+                    <span id="sniffText">Start Capture</span>
+                </button>
+                <button id="btnStartGen" class="btn btn-primary">
+                    <span>▶️</span>
+                    <span>Start Generator</span>
+                </button>
+                <button id="btnStopGen" class="btn btn-danger">
+                    <span>⏹️</span>
+                    <span>Stop Generator</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Alert -->
+        <div id="alert" class="alert">
+            <span style="font-size: 24px;">⚠️</span>
+            <span id="alertText">High traffic spike detected!</span>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--card-color-1: #3b82f6; --card-color-2: #2563eb;">
+                <div class="help-tooltip">Shows the total network throughput in bytes per second, measuring how much data is flowing through the network.</div>
+                <div class="kpi-icon">⚡</div>
+                <div class="kpi-label">Network Throughput</div>
+                <div class="kpi-value">
+                    <span id="kpiThroughput">0</span>
+                    <span class="kpi-unit">B/s</span>
+                </div>
+            </div>
+
+            <div class="kpi-card" style="--card-color-1: #8b5cf6; --card-color-2: #7c3aed;">
+                <div class="help-tooltip">Displays the number of packets being processed per second, indicating network activity level.</div>
+                <div class="kpi-icon">📊</div>
+                <div class="kpi-label">Packets per Second</div>
+                <div class="kpi-value">
+                    <span id="kpiPps">0</span>
+                    <span class="kpi-unit">pps</span>
+                </div>
+            </div>
+
+            <div class="kpi-card" style="--card-color-1: #10b981; --card-color-2: #059669;">
+                <div class="help-tooltip">Counts the different network protocols detected (TCP, UDP, ICMP, etc.) in the traffic.</div>
+                <div class="kpi-icon">🛡️</div>
+                <div class="kpi-label">Active Protocols</div>
+                <div class="kpi-value">
+                    <span id="kpiProto">0</span>
+                </div>
+            </div>
+
+            <div class="kpi-card" style="--card-color-1: #f59e0b; --card-color-2: #d97706;">
+                <div class="help-tooltip">Shows the number of unique IP addresses actively communicating on the network.</div>
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-label">Active Connections</div>
+                <div class="kpi-value">
+                    <span id="kpiConnections">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="help-tooltip">Real-time line chart showing network throughput in bytes per second over the last 30 seconds. Helps monitor data flow intensity.</div>
+                <div class="chart-header">
+                    <span class="chart-icon">📈</span>
+                    <h3>Network Throughput</h3>
+                </div>
+                <canvas id="throughputChart" height="80"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <div class="help-tooltip">Doughnut chart displaying the distribution of network protocols (TCP, UDP, ICMP) in captured traffic. Shows protocol usage percentages.</div>
+                <div class="chart-header">
+                    <span class="chart-icon">🎯</span>
+                    <h3>Protocol Distribution</h3>
+                </div>
+                <canvas id="protocolChart"></canvas>
+                <div id="protocolLegend" class="protocol-legend"></div>
+            </div>
+        </div>
+
+        <!-- PPS Chart -->
+        <div class="chart-card" style="margin-bottom: 24px;">
+            <div class="help-tooltip">Line chart tracking packets per second over time. Indicates network activity levels and potential traffic spikes.</div>
+            <div class="chart-header">
+                <span class="chart-icon">📉</span>
+                <h3>Packets per Second</h3>
+            </div>
+            <canvas id="ppsChart" height="60"></canvas>
+        </div>
+
+        <!-- Bottom Grid -->
+        <div class="bottom-grid">
+            <div class="data-card">
+                <div class="help-tooltip">Lists the top IP addresses by data volume and packet count. Shows the most active network participants ranked by traffic.</div>
+                <div class="chart-header">
+                    <span class="chart-icon">👥</span>
+                    <h3>Top Talkers</h3>
+                </div>
+                <div id="topTalkers" class="data-list"></div>
+            </div>
+
+            <div class="data-card">
+                <div class="help-tooltip">Real-time feed of the most recent network packets captured, showing source, destination, protocol, and packet size.</div>
+                <div class="chart-header">
+                    <span class="chart-icon">📡</span>
+                    <h3>Live Packet Stream</h3>
+                </div>
+                <div id="recentPackets" class="data-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        // Chart colors
+        const colors = {
+            blue: 'rgb(59, 130, 246)',
+            blueAlpha: 'rgba(59, 130, 246, 0.2)',
+            purple: 'rgb(139, 92, 246)',
+            pink: 'rgb(236, 72, 153)',
+            orange: 'rgb(245, 158, 11)',
+            green: 'rgb(16, 185, 129)'
+        };
+
+        // Initialize Charts
+        const throughputChart = new Chart(document.getElementById('throughputChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Bytes/sec',
+                    data: [],
+                    borderColor: colors.blue,
+                    backgroundColor: colors.blueAlpha,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        const ppsChart = new Chart(document.getElementById('ppsChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Packets/sec',
+                    data: [],
+                    borderColor: colors.green,
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        const protocolChart = new Chart(document.getElementById('protocolChart'), {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [colors.blue, colors.purple, colors.pink, colors.orange, colors.green],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // State
+        let generatorRunning = false;
+        let snifferRunning = false;
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('stats', (data) => {
+            // Update KPIs
+            document.getElementById('kpiThroughput').textContent = (data.kpis.throughput || 0).toLocaleString();
+            document.getElementById('kpiPps').textContent = (data.kpis.pps || 0).toLocaleString();
+            document.getElementById('kpiProto').textContent = data.kpis.protocol_count || 0;
+            document.getElementById('kpiConnections').textContent = data.kpis.active_connections || 0;
+
+            // Update throughput chart
+            const times = (data.times || []).map(t => new Date(t * 1000).toLocaleTimeString());
+            throughputChart.data.labels = times;
+            throughputChart.data.datasets[0].data = data.throughput || [];
+            throughputChart.update('none');
+
+            // Update PPS chart
+            ppsChart.data.labels = times;
+            ppsChart.data.datasets[0].data = data.pps || [];
+            ppsChart.update('none');
+
+            // Update protocol chart
+            const protocols = data.protocols || {};
+            protocolChart.data.labels = Object.keys(protocols);
+            protocolChart.data.datasets[0].data = Object.values(protocols);
+            protocolChart.update('none');
+
+            // Update protocol legend
+            const legendHtml = Object.entries(protocols).map((proto, idx) => {
+                const colorArr = [colors.blue, colors.purple, colors.pink, colors.orange, colors.green];
+                return `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${colorArr[idx % colorArr.length]}"></div>
+                        <span>${proto[0]}: ${proto[1]}</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('protocolLegend').innerHTML = legendHtml;
+
+            // Update top talkers
+            const talkersHtml = (data.top_talkers || []).map(t => `
+                <div class="talker-item">
+                    <div>
+                        <div style="font-weight: 600; font-family: 'Courier New', monospace;">${t.ip}</div>
+                        <div style="font-size: 12px; color: #94a3b8;">${t.packets} packets</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 700; color: #60a5fa;">${(t.bytes / 1024).toFixed(1)} KB</div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('topTalkers').innerHTML = talkersHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No data yet</div>';
+
+            // Update recent packets
+            const packetsHtml = (data.recent_packets || []).map(p => `
+                <div class="packet-item">
+                    <span style="color: #64748b;">${p.time}</span>
+                    <span class="protocol-badge protocol-${p.proto.toLowerCase()}">${p.proto}</span>
+                    <span style="color: #94a3b8;">${p.src}</span>
+                    <span style="color: #64748b;">→</span>
+                    <span style="color: #94a3b8;">${p.dst}</span>
+                    <span style="color: #64748b;">${p.size}B</span>
+                </div>
+            `).join('');
+            document.getElementById('recentPackets').innerHTML = packetsHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No packets captured</div>';
+
+            // Show alert if high PPS
+            const alert = document.getElementById('alert');
+            if (data.kpis.pps > 500) {
+                alert.classList.add('show');
+            } else {
+                alert.classList.remove('show');
+            }
+        });
+
+        socket.on('generator_status', (data) => {
+            generatorRunning = data.running;
+            const btn = document.getElementById('btnStartGen');
+            if (data.running) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        socket.on('sniffer_status', (data) => {
+            snifferRunning = data.running;
+            const btn = document.getElementById('btnSniff');
+            const text = document.getElementById('sniffText');
+            if (data.running) {
+                btn.classList.add('active');
+                text.textContent = 'Capturing...';
+            } else {
+                btn.classList.remove('active');
+                text.textContent = 'Start Capture';
+            }
+        });
+
+        // Button handlers
+        document.getElementById('btnStartGen').onclick = () => {
+            socket.emit('start_generator', {
+                target: '127.0.0.1',
+                pps: 300,
+                size: 200
+            });
+        };
+
+        document.getElementById('btnStopGen').onclick = () => {
+            socket.emit('stop_generator', {});
+        };
+
+        document.getElementById('btnSniff').onclick = () => {
+            if (!snifferRunning) {
+                const iface = prompt('Enter network interface (leave empty for auto-detect):\nExamples: eth0, wlan0, en0');
+                socket.emit('start_sniff', { iface: iface || null });
+            }
+        };
+    </script>
+</body>
+</html>
