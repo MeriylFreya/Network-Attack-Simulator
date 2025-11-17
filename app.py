@@ -9,7 +9,7 @@ import socket
 
 # Optional: scapy for real packet capture
 try:
-    from scapy.all import sniff, IP, TCP, UDP, ICMP
+    from scapy.all import sniff, IP, TCP, UDP, ICMP, ARP, DNS
     SCAPY_AVAILABLE = True
 except Exception as e:
     print(f"Warning: scapy not available. Real capture disabled. Error: {e}")
@@ -55,21 +55,61 @@ def add_packet(pkt_info):
         recent_packets.appendleft(pkt_info)
 
 def scapy_packet_to_info(pkt):
+    """
+    Convert Scapy packet to info dict
+    Now supports TCP, UDP, ICMP, ARP, and other protocols
+    """
     try:
         proto = "OTHER"
         src = "unknown"
         dst = "unknown"
         size = len(pkt)
         
+        # Check for IP layer first
         if IP in pkt:
             src = pkt[IP].src
             dst = pkt[IP].dst
+            
+            # Identify specific protocols
             if TCP in pkt:
                 proto = "TCP"
+                # Optionally add port info
+                src_port = pkt[TCP].sport
+                dst_port = pkt[TCP].dport
+                src = f"{src}:{src_port}"
+                dst = f"{dst}:{dst_port}"
             elif UDP in pkt:
                 proto = "UDP"
+                src_port = pkt[UDP].sport
+                dst_port = pkt[UDP].dport
+                src = f"{src}:{src_port}"
+                dst = f"{dst}:{dst_port}"
             elif ICMP in pkt:
                 proto = "ICMP"
+            else:
+                # Check protocol number
+                proto_num = pkt[IP].proto
+                proto_map = {
+                    1: "ICMP",
+                    6: "TCP",
+                    17: "UDP",
+                    41: "IPv6",
+                    47: "GRE",
+                    50: "ESP",
+                    51: "AH",
+                    89: "OSPF"
+                }
+                proto = proto_map.get(proto_num, f"IP-{proto_num}")
+        
+        # Check for ARP (no IP layer)
+        elif ARP in pkt:
+            proto = "ARP"
+            src = pkt[ARP].psrc if hasattr(pkt[ARP], 'psrc') else "unknown"
+            dst = pkt[ARP].pdst if hasattr(pkt[ARP], 'pdst') else "unknown"
+        
+        # For other packet types
+        else:
+            proto = pkt.name if hasattr(pkt, 'name') else "OTHER"
         
         return {
             "ts": time.time(),
@@ -90,30 +130,51 @@ def scapy_packet_to_info(pkt):
         }
 
 def scapy_sniff_worker(iface=None):
+    """
+    Sniff packets from the network interface
+    Captures ALL protocols: TCP, UDP, ICMP, ARP, etc.
+    """
     global sniffer_running
     if not SCAPY_AVAILABLE:
         return
+    
     sniffer_running = True
-    print(f"[sniffer] Starting on interface {iface}")
+    print(f"[sniffer] Starting on interface {iface if iface else 'auto-detect'}")
+    socketio.emit('sniffer_status', {'running': True})
+    
     try:
-        sniff(iface=iface, prn=lambda p: add_packet(scapy_packet_to_info(p)), store=False)
+        # Sniff without filter to capture all protocols
+        sniff(
+            iface=iface, 
+            prn=lambda p: add_packet(scapy_packet_to_info(p)), 
+            store=False,
+            # Remove filter to capture all packets
+            filter=None
+        )
     except Exception as e:
         print(f"Sniffer error: {e}")
+        socketio.emit('sniffer_status', {'running': False, 'error': str(e)})
     finally:
         sniffer_running = False
+        socketio.emit('sniffer_status', {'running': False})
 
 def udp_generator(target_ip="127.0.0.1", target_port=UDP_ECHO_PORT, pps=300, payload_size=200):
+    """
+    Generate fake UDP packets for testing
+    This creates synthetic traffic to test the dashboard
+    """
     global generator_running
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     seq = 0
     interval = 1.0 / max(1, pps)
     
-    print(f"[generator] Starting to {target_ip}:{target_port} at {pps}pps")
+    print(f"[generator] Starting FAKE UDP packets to {target_ip}:{target_port} at {pps}pps")
+    print(f"[generator] This is SYNTHETIC traffic for testing purposes")
     
     while generator_running and not stop_event.is_set():
         seq += 1
         ts = time.time()
-        payload = json.dumps({"seq": seq, "ts": ts}).encode('utf-8').ljust(payload_size, b'0')
+        payload = json.dumps({"seq": seq, "ts": ts, "type": "FAKE"}).encode('utf-8').ljust(payload_size, b'0')
         
         try:
             sock.sendto(payload, (target_ip, target_port))
@@ -123,7 +184,7 @@ def udp_generator(target_ip="127.0.0.1", target_port=UDP_ECHO_PORT, pps=300, pay
                 "dst": target_ip,
                 "proto": "UDP",
                 "bytes": len(payload),
-                "summary": f"Generated UDP seq={seq}"
+                "summary": f"Generated FAKE UDP seq={seq}"
             })
         except Exception as e:
             print(f"Generator error: {e}")
@@ -132,9 +193,14 @@ def udp_generator(target_ip="127.0.0.1", target_port=UDP_ECHO_PORT, pps=300, pay
             break
     
     sock.close()
-    print("[generator] Stopped")
+    generator_running = False
+    socketio.emit('generator_status', {'running': False})
+    print("[generator] Stopped - Fake UDP generation ended")
 
 def emitter_loop():
+    """
+    Periodically emit stats to connected clients
+    """
     while True:
         time.sleep(EMIT_INTERVAL)
         with lock:
@@ -182,9 +248,15 @@ def index():
 @socketio.on('connect')
 def on_connect():
     emit('connected', {'status': 'connected'})
+    emit('generator_status', {'running': generator_running})
+    emit('sniffer_status', {'running': sniffer_running})
 
 @socketio.on('start_generator')
 def on_start_generator(data):
+    """
+    Start generating FAKE UDP packets
+    This creates synthetic test traffic
+    """
     global generator_running
     if generator_running:
         emit('generator_status', {'running': True})
@@ -198,27 +270,51 @@ def on_start_generator(data):
     generator_running = True
     threading.Thread(target=udp_generator, args=(target, UDP_ECHO_PORT, pps, size), daemon=True).start()
     emit('generator_status', {'running': True})
+    print("[API] Fake UDP generator started")
 
 @socketio.on('stop_generator')
-def on_stop_generator():
+def on_stop_generator(data=None):
+    """
+    Stop generating fake UDP packets
+    This stops all synthetic traffic generation
+    """
     global generator_running
     generator_running = False
     stop_event.set()
     emit('generator_status', {'running': False})
+    print("[API] Fake UDP generator stopped")
 
 @socketio.on('start_sniff')
 def on_start_sniff(data):
+    """
+    Start capturing REAL network packets
+    This monitors actual network traffic (all protocols)
+    """
     if not SCAPY_AVAILABLE:
-        emit('sniffer_status', {'running': False, 'error': 'Scapy not available'})
+        emit('sniffer_status', {'running': False, 'error': 'Scapy not available. Install with: pip install scapy'})
+        return
+    
+    if sniffer_running:
+        emit('sniffer_status', {'running': True})
         return
     
     iface = data.get('iface') or None
     threading.Thread(target=scapy_sniff_worker, args=(iface,), daemon=True).start()
-    emit('sniffer_status', {'running': True})
+    print(f"[API] Real packet capture started on interface: {iface if iface else 'auto'}")
 
 if __name__ == '__main__':
     # Start emitter
     threading.Thread(target=emitter_loop, daemon=True).start()
     
-    print("Starting NetLab Pro Dashboard on http://localhost:5000")
+    print("=" * 60)
+    print("🚀 NetLab Pro Dashboard Starting...")
+    print("=" * 60)
+    print("📡 Features:")
+    print("  • Real packet capture (TCP, UDP, ICMP, ARP, etc.)")
+    print("  • Fake UDP traffic generator for testing")
+    print("  • Real-time visualization")
+    print("=" * 60)
+    print("🌐 Access dashboard at: http://localhost:5000")
+    print("=" * 60)
+    
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
