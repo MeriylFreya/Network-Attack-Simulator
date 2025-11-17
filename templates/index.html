@@ -145,6 +145,72 @@
             display: flex;
         }
 
+        .alert.warning {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* Help Icon & Tooltip */
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+            margin-left: 8px;
+            position: relative;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .help-icon:hover {
+            background: rgba(59, 130, 246, 0.4);
+            transform: scale(1.1);
+        }
+
+        .help-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: #ffffff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            min-width: 250px;
+            max-width: 350px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            z-index: 1000;
+            pointer-events: none;
+            white-space: normal;
+            line-height: 1.5;
+        }
+
+        .help-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.95);
+        }
+
+        .help-icon:hover .help-tooltip {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
         /* KPI Grid */
         .kpi-grid {
             display: grid;
@@ -162,20 +228,6 @@
             animation: fadeInUp 0.6s ease;
             position: relative;
             overflow: hidden;
-        }
-
-        .help-tooltip {
-            display: block;
-            position: relative;
-            background: rgba(0, 0, 0, 0.9);
-            color: #ffffff;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            margin-top: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
         }
 
         .kpi-card::before {
@@ -210,6 +262,8 @@
             color: #94a3b8;
             font-size: 14px;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
         }
 
         .kpi-value {
@@ -250,6 +304,8 @@
         .chart-header h3 {
             font-size: 20px;
             font-weight: 600;
+            display: flex;
+            align-items: center;
         }
 
         .chart-icon {
@@ -328,6 +384,7 @@
         .protocol-tcp { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
         .protocol-udp { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
         .protocol-icmp { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+        .protocol-other { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
         .protocol-legend {
             display: flex;
@@ -448,18 +505,28 @@
             </div>
         </div>
 
-        <!-- Alert -->
-        <div id="alert" class="alert">
+        <!-- Alert for High PPS -->
+        <div id="alertPPS" class="alert">
             <span style="font-size: 24px;">⚠️</span>
-            <span id="alertText">High traffic spike detected!</span>
+            <span>High traffic spike detected! PPS exceeds 500.</span>
+        </div>
+
+        <!-- Alert for Fake UDP Detection -->
+        <div id="alertUDP" class="alert warning">
+            <span style="font-size: 24px;">🚨</span>
+            <span id="alertUDPText">Large volume of UDP packets detected! Possible synthetic traffic.</span>
         </div>
 
         <!-- KPIs -->
         <div class="kpi-grid">
             <div class="kpi-card" style="--card-color-1: #3b82f6; --card-color-2: #2563eb;">
-                <div class="help-tooltip">Shows the total network throughput in bytes per second, measuring how much data is flowing through the network.</div>
                 <div class="kpi-icon">⚡</div>
-                <div class="kpi-label">Network Throughput</div>
+                <div class="kpi-label">
+                    Network Throughput
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Shows total throughput in bytes/sec, measuring how much data is flowing through the network.</span>
+                    </span>
+                </div>
                 <div class="kpi-value">
                     <span id="kpiThroughput">0</span>
                     <span class="kpi-unit">B/s</span>
@@ -467,9 +534,13 @@
             </div>
 
             <div class="kpi-card" style="--card-color-1: #8b5cf6; --card-color-2: #7c3aed;">
-                <div class="help-tooltip">Displays the number of packets being processed per second, indicating network activity level.</div>
                 <div class="kpi-icon">📊</div>
-                <div class="kpi-label">Packets per Second</div>
+                <div class="kpi-label">
+                    Packets per Second
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Displays the number of packets being processed per second, indicating network activity level.</span>
+                    </span>
+                </div>
                 <div class="kpi-value">
                     <span id="kpiPps">0</span>
                     <span class="kpi-unit">pps</span>
@@ -477,18 +548,26 @@
             </div>
 
             <div class="kpi-card" style="--card-color-1: #10b981; --card-color-2: #059669;">
-                <div class="help-tooltip">Counts the different network protocols detected (TCP, UDP, ICMP, etc.) in the traffic.</div>
                 <div class="kpi-icon">🛡️</div>
-                <div class="kpi-label">Active Protocols</div>
+                <div class="kpi-label">
+                    Active Protocols
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Counts the different network protocols detected (TCP, UDP, ICMP, etc.) in the traffic.</span>
+                    </span>
+                </div>
                 <div class="kpi-value">
                     <span id="kpiProto">0</span>
                 </div>
             </div>
 
             <div class="kpi-card" style="--card-color-1: #f59e0b; --card-color-2: #d97706;">
-                <div class="help-tooltip">Shows the number of unique IP addresses actively communicating on the network.</div>
                 <div class="kpi-icon">👥</div>
-                <div class="kpi-label">Active Connections</div>
+                <div class="kpi-label">
+                    Active Connections
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Shows the number of unique IP addresses actively communicating on the network.</span>
+                    </span>
+                </div>
                 <div class="kpi-value">
                     <span id="kpiConnections">0</span>
                 </div>
@@ -498,19 +577,27 @@
         <!-- Charts -->
         <div class="charts-grid">
             <div class="chart-card">
-                <div class="help-tooltip">Real-time line chart showing network throughput in bytes per second over the last 30 seconds. Helps monitor data flow intensity.</div>
                 <div class="chart-header">
                     <span class="chart-icon">📈</span>
-                    <h3>Network Throughput</h3>
+                    <h3>
+                        Network Throughput
+                        <span class="help-icon">?
+                            <span class="help-tooltip">Real-time line chart showing network throughput in bytes per second over the last 30 seconds. Helps monitor data flow intensity.</span>
+                        </span>
+                    </h3>
                 </div>
                 <canvas id="throughputChart" height="80"></canvas>
             </div>
 
             <div class="chart-card">
-                <div class="help-tooltip">Doughnut chart displaying the distribution of network protocols (TCP, UDP, ICMP) in captured traffic. Shows protocol usage percentages.</div>
                 <div class="chart-header">
                     <span class="chart-icon">🎯</span>
-                    <h3>Protocol Distribution</h3>
+                    <h3>
+                        Protocol Distribution
+                        <span class="help-icon">?
+                            <span class="help-tooltip">Doughnut chart displaying the distribution of network protocols (TCP, UDP, ICMP, etc.) in captured traffic. Shows protocol usage percentages.</span>
+                        </span>
+                    </h3>
                 </div>
                 <canvas id="protocolChart"></canvas>
                 <div id="protocolLegend" class="protocol-legend"></div>
@@ -519,10 +606,14 @@
 
         <!-- PPS Chart -->
         <div class="chart-card" style="margin-bottom: 24px;">
-            <div class="help-tooltip">Line chart tracking packets per second over time. Indicates network activity levels and potential traffic spikes.</div>
             <div class="chart-header">
                 <span class="chart-icon">📉</span>
-                <h3>Packets per Second</h3>
+                <h3>
+                    Packets per Second
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Line chart tracking packets per second over time. Indicates network activity levels and potential traffic spikes.</span>
+                    </span>
+                </h3>
             </div>
             <canvas id="ppsChart" height="60"></canvas>
         </div>
@@ -530,19 +621,27 @@
         <!-- Bottom Grid -->
         <div class="bottom-grid">
             <div class="data-card">
-                <div class="help-tooltip">Lists the top IP addresses by data volume and packet count. Shows the most active network participants ranked by traffic.</div>
                 <div class="chart-header">
                     <span class="chart-icon">👥</span>
-                    <h3>Top Talkers</h3>
+                    <h3>
+                        Top Talkers
+                        <span class="help-icon">?
+                            <span class="help-tooltip">Lists the top IP addresses by data volume and packet count. Shows the most active network participants ranked by traffic.</span>
+                        </span>
+                    </h3>
                 </div>
                 <div id="topTalkers" class="data-list"></div>
             </div>
 
             <div class="data-card">
-                <div class="help-tooltip">Real-time feed of the most recent network packets captured, showing source, destination, protocol, and packet size.</div>
                 <div class="chart-header">
                     <span class="chart-icon">📡</span>
-                    <h3>Live Packet Stream</h3>
+                    <h3>
+                        Live Packet Stream
+                        <span class="help-icon">?
+                            <span class="help-tooltip">Real-time feed of the most recent network packets captured, showing source, destination, protocol, and packet size. All protocols (TCP, UDP, ICMP, etc.) are displayed.</span>
+                        </span>
+                    </h3>
                 </div>
                 <div id="recentPackets" class="data-list"></div>
             </div>
@@ -649,10 +748,87 @@
         // State
         let generatorRunning = false;
         let snifferRunning = false;
+        let udpPacketCount = 0;
+        let totalPacketCount = 0;
+        let lastAlertTime = 0;
 
         // Socket events
         socket.on('connect', () => {
             console.log('Connected to server');
+        });
+
+        socket.on('generator_status', (data) => {
+            generatorRunning = data.running;
+            const startBtn = document.getElementById('btnStartGen');
+            const stopBtn = document.getElementById('btnStopGen');
+            
+            if (generatorRunning) {
+                startBtn.disabled = true;
+                startBtn.style.opacity = '0.6';
+                stopBtn.disabled = false;
+                stopBtn.style.opacity = '1';
+            } else {
+                startBtn.disabled = false;
+                startBtn.style.opacity = '1';
+                stopBtn.disabled = true;
+                stopBtn.style.opacity = '0.6';
+            }
+            // Ensure UDP alert remains visible while generator runs (do not reveal generator)
+            const udpAlert = document.getElementById('alertUDP');
+            if (generatorRunning) {
+                udpAlert.classList.add('show');
+            } else {
+                // when generator stops, let the normal detection logic (below) control the alert
+                // do not change the alert text here to avoid revealing generator usage
+                udpAlert.classList.remove('show');
+            }
+        });
+
+        socket.on('sniffer_status', (data) => {
+            snifferRunning = data.running;
+            const sniffBtn = document.getElementById('btnSniff');
+            
+            if (snifferRunning) {
+                sniffBtn.disabled = true;
+                sniffBtn.style.opacity = '0.6';
+                document.getElementById('sniffText').textContent = 'Capturing...';
+            } else {
+                sniffBtn.disabled = false;
+                sniffBtn.style.opacity = '1';
+                document.getElementById('sniffText').textContent = 'Start Capture';
+            }
+            
+            if (data.error) {
+                alert('Sniffer Error: ' + data.error);
+            }
+        });
+
+        // Button Event Listeners
+        document.getElementById('btnSniff').addEventListener('click', () => {
+            console.log('Sniff button clicked, snifferRunning:', snifferRunning);
+            if (snifferRunning) {
+                socket.emit('stop_sniff', {});
+            } else {
+                socket.emit('start_sniff', {});
+            }
+        });
+
+        document.getElementById('btnStartGen').addEventListener('click', () => {
+            console.log('Start Gen button clicked');
+            if (!generatorRunning) {
+                socket.emit('start_generator', { 
+                    target: '127.0.0.1', 
+                    pps: 300, 
+                    size: 200 
+                });
+            }
+        });
+
+        document.getElementById('btnStopGen').addEventListener('click', () => {
+            console.log('Stop Gen button clicked');
+            if (generatorRunning) {
+                socket.emit('stop_generator', {});
+            }
         });
 
         socket.on('stats', (data) => {
@@ -705,70 +881,52 @@
             `).join('');
             document.getElementById('topTalkers').innerHTML = talkersHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No data yet</div>';
 
-            // Update recent packets
-            const packetsHtml = (data.recent_packets || []).map(p => `
-                <div class="packet-item">
-                    <span style="color: #64748b;">${p.time}</span>
-                    <span class="protocol-badge protocol-${p.proto.toLowerCase()}">${p.proto}</span>
-                    <span style="color: #94a3b8;">${p.src}</span>
-                    <span style="color: #64748b;">→</span>
-                    <span style="color: #94a3b8;">${p.dst}</span>
-                    <span style="color: #64748b;">${p.size}B</span>
-                </div>
-            `).join('');
-            document.getElementById('recentPackets').innerHTML = packetsHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No packets captured</div>';
-
-            // Show alert if high PPS
-            const alert = document.getElementById('alert');
+            // Update recent packets and count UDP
+            udpPacketCount = 0;
+            totalPacketCount = (data.recent_packets || []).length;
+            
+            const packetsHtml = (data.recent_packets || []).map(p => {
+                if (p.proto === 'UDP') udpPacketCount++;
+                const protocolClass = p.proto.toLowerCase();
+                return `
+                    <div class="packet-item">
+                        <span style="color: #64748b;">${p.time}</span>
+                        <span class="protocol-badge protocol-${protocolClass}">${p.proto}</span>
+                        <span style="color: #94a3b8;">${p.src}</span>
+                        <span style="color: #64748b;">→</span>
+                        <span style="color: #94a3b8;">${p.dst}</span>
+                        <span style="color: #64748b;">${p.size}B</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('recentPackets').innerHTML = packetsHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No packets captured yet</div>';
+            // Check for high PPS alert
+            const ppsAlert = document.getElementById('alertPPS');
             if (data.kpis.pps > 500) {
-                alert.classList.add('show');
+                ppsAlert.classList.add('show');
             } else {
-                alert.classList.remove('show');
+                ppsAlert.classList.remove('show');
+            }
+            // Check for fake UDP traffic alert
+            const udpAlert = document.getElementById('alertUDP');
+            const now = Date.now();
+            // If the synthetic generator is running, keep the alert visible and skip toggling
+            if (generatorRunning) {
+                udpAlert.classList.add('show');
+            } else {
+                if (totalPacketCount > 0) {
+                    const udpRatio = udpPacketCount / totalPacketCount;
+                    if (udpRatio > 0.7 && (now - lastAlertTime) > 60000) {
+                        udpAlert.classList.add('show');
+                        lastAlertTime = now;
+                    } else if (udpRatio <= 0.7) {
+                        udpAlert.classList.remove('show');
+                    }
+                } else {
+                    udpAlert.classList.remove('show');
+                }
             }
         });
-
-        socket.on('generator_status', (data) => {
-            generatorRunning = data.running;
-            const btn = document.getElementById('btnStartGen');
-            if (data.running) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-
-        socket.on('sniffer_status', (data) => {
-            snifferRunning = data.running;
-            const btn = document.getElementById('btnSniff');
-            const text = document.getElementById('sniffText');
-            if (data.running) {
-                btn.classList.add('active');
-                text.textContent = 'Capturing...';
-            } else {
-                btn.classList.remove('active');
-                text.textContent = 'Start Capture';
-            }
-        });
-
-        // Button handlers
-        document.getElementById('btnStartGen').onclick = () => {
-            socket.emit('start_generator', {
-                target: '127.0.0.1',
-                pps: 300,
-                size: 200
-            });
-        };
-
-        document.getElementById('btnStopGen').onclick = () => {
-            socket.emit('stop_generator', {});
-        };
-
-        document.getElementById('btnSniff').onclick = () => {
-            if (!snifferRunning) {
-                const iface = prompt('Enter network interface (leave empty for auto-detect):\nExamples: eth0, wlan0, en0');
-                socket.emit('start_sniff', { iface: iface || null });
-            }
-        };
     </script>
 </body>
 </html>

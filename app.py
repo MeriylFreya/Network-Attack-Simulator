@@ -302,6 +302,16 @@ def on_start_sniff(data):
     threading.Thread(target=scapy_sniff_worker, args=(iface,), daemon=True).start()
     print(f"[API] Real packet capture started on interface: {iface if iface else 'auto'}")
 
+@socketio.on('stop_sniff')
+def on_stop_sniff(data=None):
+    """
+    Stop capturing network packets
+    """
+    global sniffer_running
+    sniffer_running = False
+    emit('sniffer_status', {'running': False})
+    print("[API] Real packet capture stopped")
+
 if __name__ == '__main__':
     # Start emitter
     threading.Thread(target=emitter_loop, daemon=True).start()
