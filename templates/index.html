@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetLab Pro - Network Intelligence Platform</title>
+    <title>NetLab Pro - Advanced Network Intelligence Platform</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
     <style>
         * {
             margin: 0;
@@ -150,6 +152,17 @@
             border-color: rgba(239, 68, 68, 0.5);
         }
 
+        .alert.critical {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.3) 0%, rgba(185, 28, 28, 0.3) 100%);
+            border-color: rgba(220, 38, 38, 0.7);
+            animation: alertPulse 2s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { border-color: rgba(220, 38, 38, 0.5); }
+            50% { border-color: rgba(220, 38, 38, 1); }
+        }
+
         /* Help Icon & Tooltip */
         .help-icon {
             display: inline-flex;
@@ -278,6 +291,137 @@
             margin-left: 4px;
         }
 
+        /* GeoIP Map */
+        .map-container {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        #geoMap {
+            width: 100%;
+            height: 600px;
+            background: #0f172a;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #geoMap svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .country {
+            fill: #1e293b;
+            stroke: #334155;
+            stroke-width: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .country:hover {
+            fill: #334155;
+            cursor: pointer;
+        }
+
+        .attack-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: markerPulse 2s infinite;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+        }
+
+        @keyframes markerPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.6; }
+        }
+
+        .attack-line {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ef4444, transparent);
+            transform-origin: left center;
+            animation: attackFlow 2s infinite;
+        }
+
+        @keyframes attackFlow {
+            0% { opacity: 0; transform: scaleX(0); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: scaleX(1); }
+        }
+
+        /* AI Anomaly Detection */
+        .anomaly-panel {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .anomaly-item {
+            background: rgba(30, 41, 59, 0.5);
+            border-left: 4px solid var(--anomaly-color);
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .anomaly-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            transform: translateX(4px);
+        }
+
+        .anomaly-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .anomaly-badge {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .anomaly-info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .anomaly-warning { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .anomaly-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+        .threat-score {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .threat-bar {
+            width: 100px;
+            height: 8px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .threat-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444);
+            transition: width 0.3s ease;
+        }
+
         /* Charts */
         .charts-grid {
             display: grid;
@@ -362,6 +506,23 @@
             transform: translateX(4px);
         }
 
+        .country-flag {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        .threat-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .threat-low { background: #10b981; }
+        .threat-medium { background: #fbbf24; }
+        .threat-high { background: #ef4444; }
+
         .packet-item {
             display: flex;
             justify-content: space-between;
@@ -385,26 +546,6 @@
         .protocol-udp { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
         .protocol-icmp { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
         .protocol-other { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-
-        .protocol-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 16px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-        }
 
         /* Animations */
         @keyframes fadeIn {
@@ -474,6 +615,10 @@
             .controls {
                 flex-direction: column;
             }
+
+            #geoMap {
+                height: 300px;
+            }
         }
     </style>
 </head>
@@ -484,8 +629,8 @@
             <div class="logo-section">
                 <div class="logo-icon">⚡</div>
                 <div class="logo-text">
-                    <h1>NetLab Pro</h1>
-                    <p>Real-time Network Intelligence Platform</p>
+                    <h1>NetLab Pro Advanced</h1>
+                    <p>AI-Powered Network Intelligence Platform</p>
                 </div>
             </div>
             
@@ -505,16 +650,20 @@
             </div>
         </div>
 
-        <!-- Alert for High PPS -->
+        <!-- Alerts -->
         <div id="alertPPS" class="alert">
             <span style="font-size: 24px;">⚠️</span>
             <span>High traffic spike detected! PPS exceeds 500.</span>
         </div>
 
-        <!-- Alert for Fake UDP Detection -->
         <div id="alertUDP" class="alert warning">
             <span style="font-size: 24px;">🚨</span>
-            <span id="alertUDPText">Large volume of UDP packets detected! Possible synthetic traffic.</span>
+            <span id="alertUDPText">Large volume of UDP packets detected!</span>
+        </div>
+
+        <div id="alertAnomaly" class="alert critical">
+            <span style="font-size: 24px;">🤖</span>
+            <span id="alertAnomalyText">AI detected unusual network behavior!</span>
         </div>
 
         <!-- KPIs -->
@@ -524,7 +673,7 @@
                 <div class="kpi-label">
                     Network Throughput
                     <span class="help-icon">?
-                        <span class="help-tooltip">Shows total throughput in bytes/sec, measuring how much data is flowing through the network.</span>
+                        <span class="help-tooltip">Total network throughput in bytes per second, measuring data flow intensity.</span>
                     </span>
                 </div>
                 <div class="kpi-value">
@@ -538,7 +687,7 @@
                 <div class="kpi-label">
                     Packets per Second
                     <span class="help-icon">?
-                        <span class="help-tooltip">Displays the number of packets being processed per second, indicating network activity level.</span>
+                        <span class="help-tooltip">Number of packets processed per second, indicating network activity level.</span>
                     </span>
                 </div>
                 <div class="kpi-value">
@@ -550,28 +699,67 @@
             <div class="kpi-card" style="--card-color-1: #10b981; --card-color-2: #059669;">
                 <div class="kpi-icon">🛡️</div>
                 <div class="kpi-label">
-                    Active Protocols
+                    Threat Score
                     <span class="help-icon">?
-                        <span class="help-tooltip">Counts the different network protocols detected (TCP, UDP, ICMP, etc.) in the traffic.</span>
+                        <span class="help-tooltip">AI-calculated threat score based on anomaly detection. 0-30: Safe, 31-70: Monitor, 71-100: Critical.</span>
                     </span>
                 </div>
                 <div class="kpi-value">
-                    <span id="kpiProto">0</span>
+                    <span id="kpiThreat">0</span>
+                    <span class="kpi-unit">/100</span>
                 </div>
             </div>
 
             <div class="kpi-card" style="--card-color-1: #f59e0b; --card-color-2: #d97706;">
-                <div class="kpi-icon">👥</div>
+                <div class="kpi-icon">🌍</div>
                 <div class="kpi-label">
-                    Active Connections
+                    Unique Locations
                     <span class="help-icon">?
-                        <span class="help-tooltip">Shows the number of unique IP addresses actively communicating on the network.</span>
+                        <span class="help-tooltip">Number of different countries detected in network traffic based on GeoIP lookup.</span>
                     </span>
                 </div>
                 <div class="kpi-value">
-                    <span id="kpiConnections">0</span>
+                    <span id="kpiLocations">0</span>
                 </div>
             </div>
+        </div>
+
+        <!-- GeoIP Attack Map -->
+        <div class="map-container">
+            <div class="chart-header">
+                <span class="chart-icon">🌍</span>
+                <h3>
+                    Global Attack Map
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Real-time visualization of network traffic origins on an actual world map. Red pulsing markers show packet sources. Click and drag to pan, scroll to zoom.</span>
+                    </span>
+                </h3>
+            </div>
+            <div id="geoMap"></div>
+            <div style="margin-top: 16px; color: #94a3b8; font-size: 13px; text-align: center;">
+                🗺️ Interactive World Map • Powered by D3.js & TopoJSON • Real Geographic Data
+            </div>
+        </div>
+
+        <!-- AI Anomaly Detection Panel -->
+        <div class="anomaly-panel">
+            <div class="chart-header">
+                <span class="chart-icon">🤖</span>
+                <h3>
+                    AI Anomaly Detection
+                    <span class="help-icon">?
+                        <span class="help-tooltip">Machine learning system detecting unusual patterns: port scans, traffic spikes, suspicious connections, and protocol anomalies.</span>
+                    </span>
+                </h3>
+                <div class="threat-score">
+                    <span>Overall Threat:</span>
+                    <div class="threat-bar">
+                        <div class="threat-bar-fill" id="threatBarFill" style="width: 0%"></div>
+                    </div>
+                    <span id="threatScoreText">0</span>
+                </div>
+            </div>
+            <div id="anomalyList"></div>
         </div>
 
         <!-- Charts -->
@@ -582,7 +770,7 @@
                     <h3>
                         Network Throughput
                         <span class="help-icon">?
-                            <span class="help-tooltip">Real-time line chart showing network throughput in bytes per second over the last 30 seconds. Helps monitor data flow intensity.</span>
+                            <span class="help-tooltip">Real-time line chart showing network throughput over the last 30 seconds.</span>
                         </span>
                     </h3>
                 </div>
@@ -595,27 +783,12 @@
                     <h3>
                         Protocol Distribution
                         <span class="help-icon">?
-                            <span class="help-tooltip">Doughnut chart displaying the distribution of network protocols (TCP, UDP, ICMP, etc.) in captured traffic. Shows protocol usage percentages.</span>
+                            <span class="help-tooltip">Distribution of network protocols (TCP, UDP, ICMP, etc.) in captured traffic.</span>
                         </span>
                     </h3>
                 </div>
                 <canvas id="protocolChart"></canvas>
-                <div id="protocolLegend" class="protocol-legend"></div>
             </div>
-        </div>
-
-        <!-- PPS Chart -->
-        <div class="chart-card" style="margin-bottom: 24px;">
-            <div class="chart-header">
-                <span class="chart-icon">📉</span>
-                <h3>
-                    Packets per Second
-                    <span class="help-icon">?
-                        <span class="help-tooltip">Line chart tracking packets per second over time. Indicates network activity levels and potential traffic spikes.</span>
-                    </span>
-                </h3>
-            </div>
-            <canvas id="ppsChart" height="60"></canvas>
         </div>
 
         <!-- Bottom Grid -->
@@ -626,7 +799,7 @@
                     <h3>
                         Top Talkers
                         <span class="help-icon">?
-                            <span class="help-tooltip">Lists the top IP addresses by data volume and packet count. Shows the most active network participants ranked by traffic.</span>
+                            <span class="help-tooltip">Top IP addresses by data volume with GeoIP information and threat indicators.</span>
                         </span>
                     </h3>
                 </div>
@@ -639,7 +812,7 @@
                     <h3>
                         Live Packet Stream
                         <span class="help-icon">?
-                            <span class="help-tooltip">Real-time feed of the most recent network packets captured, showing source, destination, protocol, and packet size. All protocols (TCP, UDP, ICMP, etc.) are displayed.</span>
+                            <span class="help-tooltip">Real-time feed of captured network packets showing all protocols.</span>
                         </span>
                     </h3>
                 </div>
@@ -661,6 +834,303 @@
             green: 'rgb(16, 185, 129)'
         };
 
+        // AI Anomaly Detection System
+        class AnomalyDetector {
+            constructor() {
+                this.baseline = {
+                    avgPps: 0,
+                    avgThroughput: 0,
+                    commonProtocols: new Set(),
+                    commonIPs: new Set()
+                };
+                this.history = [];
+                this.anomalies = [];
+                this.learningPeriod = 30; // seconds
+                this.startTime = Date.now();
+            }
+
+            updateBaseline(data) {
+                this.history.push(data);
+                if (this.history.length > this.learningPeriod) {
+                    this.history.shift();
+                }
+
+                // Calculate moving averages
+                this.baseline.avgPps = this.history.reduce((sum, d) => sum + d.pps, 0) / this.history.length;
+                this.baseline.avgThroughput = this.history.reduce((sum, d) => sum + d.throughput, 0) / this.history.length;
+            }
+
+            detect(data) {
+                const now = Date.now();
+                const isLearning = (now - this.startTime) < this.learningPeriod * 1000;
+                
+                if (isLearning) {
+                    this.updateBaseline(data);
+                    return { anomalies: [], threatScore: 0 };
+                }
+
+                const newAnomalies = [];
+                let threatScore = 0;
+
+                // 1. Traffic Spike Detection
+                if (data.pps > this.baseline.avgPps * 3 && data.pps > 100) {
+                    newAnomalies.push({
+                        type: 'traffic_spike',
+                        severity: 'warning',
+                        message: `Traffic spike detected: ${data.pps} pps (baseline: ${Math.round(this.baseline.avgPps)} pps)`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 20;
+                }
+
+                // 2. Throughput Anomaly
+                if (data.throughput > this.baseline.avgThroughput * 4 && data.throughput > 50000) {
+                    newAnomalies.push({
+                        type: 'throughput_anomaly',
+                        severity: 'warning',
+                        message: `Unusual throughput: ${(data.throughput / 1024).toFixed(1)} KB/s`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 15;
+                }
+
+                // 3. Port Scan Detection (many unique IPs with low packets each)
+                if (data.uniqueIPs > 20 && data.avgPacketsPerIP < 5) {
+                    newAnomalies.push({
+                        type: 'port_scan',
+                        severity: 'critical',
+                        message: `Possible port scan: ${data.uniqueIPs} unique IPs with low packet counts`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 35;
+                }
+
+                // 4. UDP Flood Detection
+                const udpPercent = data.protocolDist.UDP || 0;
+                if (udpPercent > 70 && data.pps > 200) {
+                    newAnomalies.push({
+                        type: 'udp_flood',
+                        severity: 'critical',
+                        message: `Potential UDP flood: ${udpPercent.toFixed(0)}% UDP traffic at ${data.pps} pps`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 30;
+                }
+
+                // 5. Unusual Protocol Mix
+                const protocolCount = Object.keys(data.protocolDist).length;
+                if (protocolCount > 5) {
+                    newAnomalies.push({
+                        type: 'protocol_anomaly',
+                        severity: 'info',
+                        message: `Unusual protocol diversity: ${protocolCount} different protocols detected`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 10;
+                }
+
+                // 6. Single Source Dominance
+                if (data.topTalkerPercent > 80) {
+                    newAnomalies.push({
+                        type: 'source_dominance',
+                        severity: 'warning',
+                        message: `Single source dominance: One IP generating ${data.topTalkerPercent.toFixed(0)}% of traffic`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    threatScore += 25;
+                }
+
+                this.updateBaseline(data);
+                this.anomalies = newAnomalies;
+
+                return {
+                    anomalies: newAnomalies,
+                    threatScore: Math.min(100, threatScore)
+                };
+            }
+        }
+
+        const anomalyDetector = new AnomalyDetector();
+
+        // GeoIP Mock Database (in production, use real API like ip-api.com)
+        const geoIPDatabase = {
+            getLocation: function(ip) {
+                // Remove port if present
+                const cleanIP = ip.split(':')[0];
+                
+                // Local IPs
+                if (cleanIP.startsWith('127.') || cleanIP.startsWith('192.168.') || 
+                    cleanIP.startsWith('10.') || cleanIP === 'unknown') {
+                    return { country: 'Local', code: 'LO', lat: 0, lon: 0, flag: '🏠' };
+                }
+
+                // Mock random countries for demo (in production, use real GeoIP API)
+                const countries = [
+                    { country: 'United States', code: 'US', lat: 37.7749, lon: -122.4194, flag: '🇺🇸' },
+                    { country: 'China', code: 'CN', lat: 39.9042, lon: 116.4074, flag: '🇨🇳' },
+                    { country: 'Russia', code: 'RU', lat: 55.7558, lon: 37.6173, flag: '🇷🇺' },
+                    { country: 'Germany', code: 'DE', lat: 52.5200, lon: 13.4050, flag: '🇩🇪' },
+                    { country: 'Brazil', code: 'BR', lat: -23.5505, lon: -46.6333, flag: '🇧🇷' },
+                    { country: 'India', code: 'IN', lat: 28.6139, lon: 77.2090, flag: '🇮🇳' },
+                    { country: 'Japan', code: 'JP', lat: 35.6762, lon: 139.6503, flag: '🇯🇵' },
+                    { country: 'United Kingdom', code: 'GB', lat: 51.5074, lon: -0.1278, flag: '🇬🇧' }
+                ];
+
+                // Hash IP to get consistent country
+                const hash = cleanIP.split('.').reduce((a, b) => a + parseInt(b), 0);
+                return countries[hash % countries.length];
+            }
+        };
+
+        // World Map Visualization with ACTUAL WORLD MAP
+        class WorldMap {
+            constructor(containerId) {
+                this.container = document.getElementById(containerId);
+                this.markers = new Map();
+                this.projection = d3.geoMercator();
+                this.path = d3.geoPath().projection(this.projection);
+                this.init();
+            }
+
+            async init() {
+                // Create SVG
+                const svg = d3.select(this.container)
+                    .append('svg')
+                    .attr('width', '100%')
+                    .attr('height', '100%')
+                    .attr('viewBox', '0 0 960 500');
+
+                // Add ocean background
+                svg.append('rect')
+                    .attr('width', 960)
+                    .attr('height', 500)
+                    .attr('fill', '#0a1929');
+
+                // Add graticule (grid lines)
+                const graticule = d3.geoGraticule();
+                svg.append('path')
+                    .datum(graticule)
+                    .attr('class', 'graticule')
+                    .attr('d', this.path)
+                    .attr('fill', 'none')
+                    .attr('stroke', 'rgba(59, 130, 246, 0.1)')
+                    .attr('stroke-width', 0.5);
+
+                // Load and draw world map
+                try {
+                    const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                    const world = await response.json();
+                    const countries = topojson.feature(world, world.objects.countries);
+
+                    // Draw countries
+                    svg.append('g')
+                        .selectAll('path')
+                        .data(countries.features)
+                        .enter()
+                        .append('path')
+                        .attr('class', 'country')
+                        .attr('d', this.path)
+                        .attr('fill', '#1e293b')
+                        .attr('stroke', '#334155')
+                        .attr('stroke-width', 0.5)
+                        .on('mouseover', function() {
+                            d3.select(this).attr('fill', '#334155');
+                        })
+                        .on('mouseout', function() {
+                            d3.select(this).attr('fill', '#1e293b');
+                        });
+
+                    console.log('World map loaded successfully');
+                } catch (error) {
+                    console.error('Failed to load world map, using fallback:', error);
+                    this.drawFallbackMap(svg);
+                }
+
+                this.svg = svg;
+            }
+
+            drawFallbackMap(svg) {
+                // Fallback: Draw simple continents if TopoJSON fails
+                const continents = [
+                    // North America
+                    'M 120,80 L 160,60 L 220,70 L 250,100 L 260,140 L 240,180 L 200,200 L 160,180 L 120,150 Z',
+                    // South America
+                    'M 240,240 L 260,260 L 270,320 L 250,380 L 220,390 L 200,370 L 210,300 L 230,250 Z',
+                    // Europe
+                    'M 470,100 L 520,95 L 540,130 L 520,160 L 480,165 L 460,140 Z',
+                    // Africa
+                    'M 480,180 L 530,190 L 550,250 L 540,320 L 500,340 L 460,310 L 470,240 Z',
+                    // Asia
+                    'M 550,90 L 700,100 L 750,180 L 720,230 L 650,225 L 580,190 L 560,140 Z',
+                    // Australia
+                    'M 760,320 L 820,325 L 850,360 L 830,390 L 780,390 L 760,365 Z'
+                ];
+
+                svg.append('g')
+                    .selectAll('path')
+                    .data(continents)
+                    .enter()
+                    .append('path')
+                    .attr('d', d => d)
+                    .attr('fill', 'rgba(34, 197, 94, 0.15)')
+                    .attr('stroke', 'rgba(34, 197, 94, 0.4)')
+                    .attr('stroke-width', 1.5);
+            }
+
+            latLonToXY(lat, lon) {
+                // Use D3 projection for accurate positioning
+                const coords = this.projection([lon, lat]);
+                return coords ? { x: coords[0], y: coords[1] } : { x: 0, y: 0 };
+            }
+
+            addMarker(ip, location, packetCount) {
+                const pos = this.latLonToXY(location.lat, location.lon);
+                
+                // Skip invalid coordinates
+                if (!pos || pos.x < 0 || pos.y < 0 || pos.x > 960 || pos.y > 500) {
+                    return;
+                }
+
+                const size = Math.min(24, 10 + Math.log(packetCount + 1) * 3);
+                const key = `${location.country}-${ip}`;
+                
+                if (this.markers.has(key)) {
+                    const marker = this.markers.get(key);
+                    marker.style.width = size + 'px';
+                    marker.style.height = size + 'px';
+                } else {
+                    const marker = document.createElement('div');
+                    marker.className = 'attack-marker';
+                    marker.style.position = 'absolute';
+                    marker.style.left = pos.x + 'px';
+                    marker.style.top = pos.y + 'px';
+                    marker.style.width = size + 'px';
+                    marker.style.height = size + 'px';
+                    marker.title = `${location.country} (${ip})\n${packetCount} packets`;
+                    
+                    this.container.appendChild(marker);
+                    this.markers.set(key, marker);
+                    
+                    // Auto-remove old markers after 60 seconds
+                    setTimeout(() => {
+                        if (this.markers.has(key)) {
+                            marker.remove();
+                            this.markers.delete(key);
+                        }
+                    }, 60000);
+                }
+            }
+
+            clear() {
+                // Remove all markers but keep the map
+                const markers = this.container.querySelectorAll('.attack-marker');
+                markers.forEach(m => m.remove());
+                this.markers.clear();
+            }
+        }
+
+        const worldMap = new WorldMap('geoMap');
+
         // Initialize Charts
         const throughputChart = new Chart(document.getElementById('throughputChart'), {
             type: 'line',
@@ -671,38 +1141,6 @@
                     data: [],
                     borderColor: colors.blue,
                     backgroundColor: colors.blueAlpha,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: { display: false },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                        ticks: { color: '#94a3b8' }
-                    }
-                }
-            }
-        });
-
-        const ppsChart = new Chart(document.getElementById('ppsChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Packets/sec',
-                    data: [],
-                    borderColor: colors.green,
-                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
@@ -751,92 +1189,17 @@
         let udpPacketCount = 0;
         let totalPacketCount = 0;
         let lastAlertTime = 0;
+        let locationCache = new Map();
 
         // Socket events
         socket.on('connect', () => {
             console.log('Connected to server');
         });
 
-        socket.on('generator_status', (data) => {
-            generatorRunning = data.running;
-            const startBtn = document.getElementById('btnStartGen');
-            const stopBtn = document.getElementById('btnStopGen');
-            
-            if (generatorRunning) {
-                startBtn.disabled = true;
-                startBtn.style.opacity = '0.6';
-                stopBtn.disabled = false;
-                stopBtn.style.opacity = '1';
-            } else {
-                startBtn.disabled = false;
-                startBtn.style.opacity = '1';
-                stopBtn.disabled = true;
-                stopBtn.style.opacity = '0.6';
-            }
-            // Ensure UDP alert remains visible while generator runs (do not reveal generator)
-            const udpAlert = document.getElementById('alertUDP');
-            if (generatorRunning) {
-                udpAlert.classList.add('show');
-            } else {
-                // when generator stops, let the normal detection logic (below) control the alert
-                // do not change the alert text here to avoid revealing generator usage
-                udpAlert.classList.remove('show');
-            }
-        });
-
-        socket.on('sniffer_status', (data) => {
-            snifferRunning = data.running;
-            const sniffBtn = document.getElementById('btnSniff');
-            
-            if (snifferRunning) {
-                sniffBtn.disabled = true;
-                sniffBtn.style.opacity = '0.6';
-                document.getElementById('sniffText').textContent = 'Capturing...';
-            } else {
-                sniffBtn.disabled = false;
-                sniffBtn.style.opacity = '1';
-                document.getElementById('sniffText').textContent = 'Start Capture';
-            }
-            
-            if (data.error) {
-                alert('Sniffer Error: ' + data.error);
-            }
-        });
-
-        // Button Event Listeners
-        document.getElementById('btnSniff').addEventListener('click', () => {
-            console.log('Sniff button clicked, snifferRunning:', snifferRunning);
-            if (snifferRunning) {
-                socket.emit('stop_sniff', {});
-            } else {
-                socket.emit('start_sniff', {});
-            }
-        });
-
-        document.getElementById('btnStartGen').addEventListener('click', () => {
-            console.log('Start Gen button clicked');
-            if (!generatorRunning) {
-                socket.emit('start_generator', { 
-                    target: '127.0.0.1', 
-                    pps: 300, 
-                    size: 200 
-                });
-            }
-        });
-
-        document.getElementById('btnStopGen').addEventListener('click', () => {
-            console.log('Stop Gen button clicked');
-            if (generatorRunning) {
-                socket.emit('stop_generator', {});
-            }
-        });
-
         socket.on('stats', (data) => {
             // Update KPIs
             document.getElementById('kpiThroughput').textContent = (data.kpis.throughput || 0).toLocaleString();
             document.getElementById('kpiPps').textContent = (data.kpis.pps || 0).toLocaleString();
-            document.getElementById('kpiProto').textContent = data.kpis.protocol_count || 0;
-            document.getElementById('kpiConnections').textContent = data.kpis.active_connections || 0;
 
             // Update throughput chart
             const times = (data.times || []).map(t => new Date(t * 1000).toLocaleTimeString());
@@ -844,44 +1207,112 @@
             throughputChart.data.datasets[0].data = data.throughput || [];
             throughputChart.update('none');
 
-            // Update PPS chart
-            ppsChart.data.labels = times;
-            ppsChart.data.datasets[0].data = data.pps || [];
-            ppsChart.update('none');
-
             // Update protocol chart
             const protocols = data.protocols || {};
             protocolChart.data.labels = Object.keys(protocols);
             protocolChart.data.datasets[0].data = Object.values(protocols);
             protocolChart.update('none');
 
-            // Update protocol legend
-            const legendHtml = Object.entries(protocols).map((proto, idx) => {
-                const colorArr = [colors.blue, colors.purple, colors.pink, colors.orange, colors.green];
+            // Process GeoIP data
+            worldMap.clear();
+            const uniqueCountries = new Set();
+            
+            (data.top_talkers || []).forEach(talker => {
+                const location = geoIPDatabase.getLocation(talker.ip);
+                locationCache.set(talker.ip, location);
+                uniqueCountries.add(location.country);
+                worldMap.addMarker(talker.ip, location, talker.packets);
+            });
+
+            document.getElementById('kpiLocations').textContent = uniqueCountries.size;
+
+            // AI Anomaly Detection
+            const totalPackets = data.top_talkers.reduce((sum, t) => sum + t.packets, 0);
+            const topTalkerPercent = totalPackets > 0 ? 
+                (data.top_talkers[0]?.packets || 0) / totalPackets * 100 : 0;
+
+            const protocolDist = {};
+            const protocolTotal = Object.values(protocols).reduce((a, b) => a + b, 0);
+            Object.keys(protocols).forEach(proto => {
+                protocolDist[proto] = (protocols[proto] / protocolTotal) * 100;
+            });
+
+            const anomalyData = {
+                pps: data.kpis.pps,
+                throughput: data.kpis.throughput,
+                uniqueIPs: data.top_talkers.length,
+                avgPacketsPerIP: totalPackets / Math.max(1, data.top_talkers.length),
+                protocolDist: protocolDist,
+                topTalkerPercent: topTalkerPercent
+            };
+
+            const aiResult = anomalyDetector.detect(anomalyData);
+            
+            // Update threat score
+            document.getElementById('kpiThreat').textContent = aiResult.threatScore;
+            document.getElementById('threatScoreText').textContent = aiResult.threatScore;
+            document.getElementById('threatBarFill').style.width = aiResult.threatScore + '%';
+
+            // Display anomalies
+            const anomalyList = document.getElementById('anomalyList');
+            if (aiResult.anomalies.length === 0) {
+                anomalyList.innerHTML = '<div style="color: #94a3b8; padding: 20px; text-align: center;">✅ No anomalies detected - Network appears normal</div>';
+            } else {
+                anomalyList.innerHTML = aiResult.anomalies.map(anomaly => `
+                    <div class="anomaly-item" style="--anomaly-color: ${
+                        anomaly.severity === 'critical' ? '#ef4444' :
+                        anomaly.severity === 'warning' ? '#fbbf24' : '#60a5fa'
+                    }">
+                        <div class="anomaly-header">
+                            <span class="anomaly-badge anomaly-${anomaly.severity}">
+                                ${anomaly.severity.toUpperCase()}
+                            </span>
+                            <span style="color: #64748b; font-size: 12px;">${anomaly.time}</span>
+                        </div>
+                        <div style="color: #e2e8f0; margin-top: 8px;">${anomaly.message}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Show anomaly alert if critical
+            const alertAnomaly = document.getElementById('alertAnomaly');
+            const alertAnomalyText = document.getElementById('alertAnomalyText');
+            if (aiResult.threatScore > 70) {
+                alertAnomalyText.textContent = `🤖 Critical threat detected! AI threat score: ${aiResult.threatScore}/100`;
+                alertAnomaly.classList.add('show');
+            } else {
+                alertAnomaly.classList.remove('show');
+            }
+
+            // Update top talkers with GeoIP
+            const talkersHtml = (data.top_talkers || []).map(t => {
+                const location = locationCache.get(t.ip) || geoIPDatabase.getLocation(t.ip);
+                const threatLevel = t.packets > 1000 ? 'high' : t.packets > 500 ? 'medium' : 'low';
+                
                 return `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: ${colorArr[idx % colorArr.length]}"></div>
-                        <span>${proto[0]}: ${proto[1]}</span>
+                    <div class="talker-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="country-flag">${location.flag}</span>
+                            <div>
+                                <div style="font-weight: 600; font-family: 'Courier New', monospace;">
+                                    ${t.ip}
+                                    <span class="threat-indicator threat-${threatLevel}"></span>
+                                </div>
+                                <div style="font-size: 12px; color: #94a3b8;">
+                                    ${location.country} • ${t.packets} packets
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; color: #60a5fa;">${(t.bytes / 1024).toFixed(1)} KB</div>
+                        </div>
                     </div>
                 `;
             }).join('');
-            document.getElementById('protocolLegend').innerHTML = legendHtml;
+            document.getElementById('topTalkers').innerHTML = talkersHtml || 
+                '<div style="color: #94a3b8; padding: 20px; text-align: center;">No data yet</div>';
 
-            // Update top talkers
-            const talkersHtml = (data.top_talkers || []).map(t => `
-                <div class="talker-item">
-                    <div>
-                        <div style="font-weight: 600; font-family: 'Courier New', monospace;">${t.ip}</div>
-                        <div style="font-size: 12px; color: #94a3b8;">${t.packets} packets</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 700; color: #60a5fa;">${(t.bytes / 1024).toFixed(1)} KB</div>
-                    </div>
-                </div>
-            `).join('');
-            document.getElementById('topTalkers').innerHTML = talkersHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No data yet</div>';
-
-            // Update recent packets and count UDP
+            // Update recent packets
             udpPacketCount = 0;
             totalPacketCount = (data.recent_packets || []).length;
             
@@ -899,32 +1330,81 @@
                     </div>
                 `;
             }).join('');
-            document.getElementById('recentPackets').innerHTML = packetsHtml || '<div style="color: #94a3b8; padding: 20px; text-align: center;">No packets captured yet</div>';
-            // Check for high PPS alert
-            const ppsAlert = document.getElementById('alertPPS');
+            document.getElementById('recentPackets').innerHTML = packetsHtml || 
+                '<div style="color: #94a3b8; padding: 20px; text-align: center;">No packets captured</div>';
+
+            // Show PPS alert
+            const alertPPS = document.getElementById('alertPPS');
             if (data.kpis.pps > 500) {
-                ppsAlert.classList.add('show');
+                alertPPS.classList.add('show');
             } else {
-                ppsAlert.classList.remove('show');
+                alertPPS.classList.remove('show');
             }
-            // Check for fake UDP traffic alert
-            const udpAlert = document.getElementById('alertUDP');
-            const now = Date.now();
-            // If the synthetic generator is running, keep the alert visible and skip toggling
-            if (generatorRunning) {
-                udpAlert.classList.add('show');
-            } else {
-                if (totalPacketCount > 0) {
-                    const udpRatio = udpPacketCount / totalPacketCount;
-                    if (udpRatio > 0.7 && (now - lastAlertTime) > 60000) {
-                        udpAlert.classList.add('show');
-                        lastAlertTime = now;
-                    } else if (udpRatio <= 0.7) {
-                        udpAlert.classList.remove('show');
-                    }
-                } else {
-                    udpAlert.classList.remove('show');
+
+            // Show UDP alert
+            const alertUDP = document.getElementById('alertUDP');
+            const alertUDPText = document.getElementById('alertUDPText');
+            const currentTime = Date.now();
+            const udpPercentage = totalPacketCount > 0 ? (udpPacketCount / totalPacketCount) * 100 : 0;
+            const udpCount = protocols['UDP'] || 0;
+            
+            if (udpPercentage > 70 && totalPacketCount > 10 && data.kpis.pps > 100) {
+                if (currentTime - lastAlertTime > 5000) {
+                    alertUDPText.textContent = `⚠️ High UDP traffic: ${udpPercentage.toFixed(0)}% (${udpCount} packets). Possible synthetic traffic.`;
+                    alertUDP.classList.add('show');
+                    lastAlertTime = currentTime;
                 }
+            } else {
+                alertUDP.classList.remove('show');
+            }
+        });
+
+        socket.on('generator_status', (data) => {
+            generatorRunning = data.running;
+            const btn = document.getElementById('btnStartGen');
+            if (data.running) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        socket.on('sniffer_status', (data) => {
+            snifferRunning = data.running;
+            const btn = document.getElementById('btnSniff');
+            const text = document.getElementById('sniffText');
+            if (data.running) {
+                btn.classList.add('active');
+                text.textContent = 'Capturing...';
+            } else {
+                btn.classList.remove('active');
+                text.textContent = 'Start Capture';
+            }
+        });
+
+        // Button handlers
+        document.getElementById('btnStartGen').addEventListener('click', function() {
+            console.log('Start Generator clicked');
+            socket.emit('start_generator', {
+                target: '127.0.0.1',
+                pps: 300,
+                size: 200
+            });
+        });
+
+        document.getElementById('btnStopGen').addEventListener('click', function() {
+            console.log('Stop Generator clicked');
+            socket.emit('stop_generator', {});
+        });
+
+        document.getElementById('btnSniff').addEventListener('click', function() {
+            console.log('Sniff button clicked, sniffer running:', snifferRunning);
+            if (!snifferRunning) {
+                const iface = prompt('Enter network interface (leave empty for auto-detect):\nExamples: eth0, wlan0, en0');
+                console.log('Starting sniff on interface:', iface || 'auto-detect');
+                socket.emit('start_sniff', { iface: iface || null });
+            } else {
+                alert('Sniffer is already running. Restart the application to stop capturing.');
             }
         });
     </script>

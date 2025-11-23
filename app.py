@@ -1,4 +1,4 @@
-# app.py
+# app.py - NetLab Pro Advanced Edition
 import threading
 import time
 import json
@@ -9,7 +9,7 @@ import socket
 
 # Optional: scapy for real packet capture
 try:
-    from scapy.all import sniff, IP, TCP, UDP, ICMP, ARP, DNS
+    from scapy.all import sniff, IP, TCP, UDP, ICMP, ARP
     SCAPY_AVAILABLE = True
 except Exception as e:
     print(f"Warning: scapy not available. Real capture disabled. Error: {e}")
@@ -19,9 +19,10 @@ except Exception as e:
 SNAPSHOT_WINDOW = 30
 EMIT_INTERVAL = 0.5
 UDP_ECHO_PORT = 9999
+GEOIP_CACHE_TTL = 3600  # Cache GeoIP lookups for 1 hour
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'netlab-pro-secret'
+app.config['SECRET_KEY'] = 'netlab-pro-advanced-secret'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Data stores
@@ -29,6 +30,7 @@ per_second = deque(maxlen=SNAPSHOT_WINDOW)
 protocol_counter = Counter()
 top_talkers = defaultdict(lambda: {"bytes": 0, "packets": 0})
 recent_packets = deque(maxlen=50)
+geoip_cache = {}
 lock = threading.Lock()
 
 # Generator control
@@ -38,6 +40,60 @@ stop_event = threading.Event()
 
 def now_sec():
     return int(time.time())
+
+def get_geoip(ip):
+    """
+    Get GeoIP information for an IP address
+    Uses ip-api.com free API (limited to 45 requests/minute)
+    """
+    # Skip local IPs
+    if ip.startswith('127.') or ip.startswith('192.168.') or ip.startswith('10.') or ip == 'unknown':
+        return {
+            'country': 'Local',
+            'countryCode': 'LO',
+            'lat': 0,
+            'lon': 0,
+            'city': 'localhost',
+            'isp': 'Local Network'
+        }
+    
+    # Check cache
+    if ip in geoip_cache:
+        cached_data, timestamp = geoip_cache[ip]
+        if time.time() - timestamp < GEOIP_CACHE_TTL:
+            return cached_data
+    
+    try:
+        # Use free ip-api.com service
+        response = requests.get(
+            f'http://ip-api.com/json/{ip}',
+            timeout=2
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                result = {
+                    'country': data.get('country', 'Unknown'),
+                    'countryCode': data.get('countryCode', 'XX'),
+                    'lat': data.get('lat', 0),
+                    'lon': data.get('lon', 0),
+                    'city': data.get('city', 'Unknown'),
+                    'isp': data.get('isp', 'Unknown')
+                }
+                geoip_cache[ip] = (result, time.time())
+                return result
+    except Exception as e:
+        print(f"GeoIP lookup failed for {ip}: {e}")
+    
+    # Default fallback
+    return {
+        'country': 'Unknown',
+        'countryCode': 'XX',
+        'lat': 0,
+        'lon': 0,
+        'city': 'Unknown',
+        'isp': 'Unknown'
+    }
 
 def add_packet(pkt_info):
     ts = int(pkt_info['ts'])
@@ -49,7 +105,10 @@ def add_packet(pkt_info):
             per_second[-1]['packets'] += 1
         
         protocol_counter[pkt_info['proto']] += 1
-        key = f"{pkt_info['src']}"
+        
+        # Extract IP without port
+        src_ip = pkt_info['src'].split(':')[0]
+        key = src_ip
         top_talkers[key]['bytes'] += pkt_info['bytes']
         top_talkers[key]['packets'] += 1
         recent_packets.appendleft(pkt_info)
@@ -57,7 +116,7 @@ def add_packet(pkt_info):
 def scapy_packet_to_info(pkt):
     """
     Convert Scapy packet to info dict
-    Now supports TCP, UDP, ICMP, ARP, and other protocols
+    Supports TCP, UDP, ICMP, ARP, and other protocols
     """
     try:
         proto = "OTHER"
@@ -73,7 +132,6 @@ def scapy_packet_to_info(pkt):
             # Identify specific protocols
             if TCP in pkt:
                 proto = "TCP"
-                # Optionally add port info
                 src_port = pkt[TCP].sport
                 dst_port = pkt[TCP].dport
                 src = f"{src}:{src_port}"
@@ -148,7 +206,6 @@ def scapy_sniff_worker(iface=None):
             iface=iface, 
             prn=lambda p: add_packet(scapy_packet_to_info(p)), 
             store=False,
-            # Remove filter to capture all packets
             filter=None
         )
     except Exception as e:
@@ -161,7 +218,7 @@ def scapy_sniff_worker(iface=None):
 def udp_generator(target_ip="127.0.0.1", target_port=UDP_ECHO_PORT, pps=300, payload_size=200):
     """
     Generate fake UDP packets for testing
-    This creates synthetic traffic to test the dashboard
+    Creates synthetic traffic to test the dashboard
     """
     global generator_running
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -174,7 +231,11 @@ def udp_generator(target_ip="127.0.0.1", target_port=UDP_ECHO_PORT, pps=300, pay
     while generator_running and not stop_event.is_set():
         seq += 1
         ts = time.time()
-        payload = json.dumps({"seq": seq, "ts": ts, "type": "FAKE"}).encode('utf-8').ljust(payload_size, b'0')
+        payload = json.dumps({
+            "seq": seq, 
+            "ts": ts, 
+            "type": "FAKE_TEST_PACKET"
+        }).encode('utf-8').ljust(payload_size, b'0')
         
         try:
             sock.sendto(payload, (target_ip, target_port))
@@ -210,7 +271,14 @@ def emitter_loop():
             proto_counts = dict(protocol_counter.most_common(10))
             
             talkers = sorted(top_talkers.items(), key=lambda kv: kv[1]['bytes'], reverse=True)[:10]
-            talkers_list = [{"ip": k, "bytes": v['bytes'], "packets": v['packets']} for k, v in talkers]
+            talkers_list = [
+                {
+                    "ip": k, 
+                    "bytes": v['bytes'], 
+                    "packets": v['packets']
+                } 
+                for k, v in talkers
+            ]
             
             recent = [
                 {
@@ -254,11 +322,13 @@ def on_connect():
 @socketio.on('start_generator')
 def on_start_generator(data):
     """
-    Start generating FAKE UDP packets
-    This creates synthetic test traffic
+    Start generating FAKE UDP packets for testing
     """
     global generator_running
+    print(f"[API] Start generator request received: {data}")
+    
     if generator_running:
+        print("[API] Generator already running")
         emit('generator_status', {'running': True})
         return
     
@@ -267,31 +337,40 @@ def on_start_generator(data):
     pps = int(data.get('pps', 300))
     size = int(data.get('size', 200))
     
+    print(f"[API] Starting generator: target={target}, pps={pps}, size={size}")
     generator_running = True
+    
+    # Start generator thread
     threading.Thread(target=udp_generator, args=(target, UDP_ECHO_PORT, pps, size), daemon=True).start()
-    emit('generator_status', {'running': True})
-    print("[API] Fake UDP generator started")
+    
+    # Broadcast to all clients
+    socketio.emit('generator_status', {'running': True}, broadcast=True)
+    print("[API] Fake UDP generator started successfully")
 
 @socketio.on('stop_generator')
 def on_stop_generator(data=None):
     """
     Stop generating fake UDP packets
-    This stops all synthetic traffic generation
     """
     global generator_running
+    print("[API] Stop generator request received")
     generator_running = False
     stop_event.set()
-    emit('generator_status', {'running': False})
+    
+    # Broadcast to all clients
+    socketio.emit('generator_status', {'running': False}, broadcast=True)
     print("[API] Fake UDP generator stopped")
 
 @socketio.on('start_sniff')
 def on_start_sniff(data):
     """
     Start capturing REAL network packets
-    This monitors actual network traffic (all protocols)
     """
     if not SCAPY_AVAILABLE:
-        emit('sniffer_status', {'running': False, 'error': 'Scapy not available. Install with: pip install scapy'})
+        emit('sniffer_status', {
+            'running': False, 
+            'error': 'Scapy not available. Install with: pip install scapy'
+        })
         return
     
     if sniffer_running:
@@ -302,29 +381,33 @@ def on_start_sniff(data):
     threading.Thread(target=scapy_sniff_worker, args=(iface,), daemon=True).start()
     print(f"[API] Real packet capture started on interface: {iface if iface else 'auto'}")
 
-@socketio.on('stop_sniff')
-def on_stop_sniff(data=None):
+@socketio.on('get_geoip')
+def on_get_geoip(data):
     """
-    Stop capturing network packets
+    Get GeoIP information for an IP address
     """
-    global sniffer_running
-    sniffer_running = False
-    emit('sniffer_status', {'running': False})
-    print("[API] Real packet capture stopped")
+    ip = data.get('ip')
+    if ip:
+        geoip_data = get_geoip(ip)
+        emit('geoip_result', {'ip': ip, 'geoip': geoip_data})
 
 if __name__ == '__main__':
     # Start emitter
     threading.Thread(target=emitter_loop, daemon=True).start()
     
-    print("=" * 60)
-    print("🚀 NetLab Pro Dashboard Starting...")
-    print("=" * 60)
-    print("📡 Features:")
-    print("  • Real packet capture (TCP, UDP, ICMP, ARP, etc.)")
-    print("  • Fake UDP traffic generator for testing")
-    print("  • Real-time visualization")
-    print("=" * 60)
+    print("=" * 70)
+    print("🚀 NetLab Pro Advanced - AI-Powered Network Intelligence Platform")
+    print("=" * 70)
+    print("✨ Features:")
+    print("  • 🤖 AI Anomaly Detection - Machine learning threat detection")
+    print("  • 🌍 GeoIP Attack Mapping - Global traffic visualization")
+    print("  • 📡 Real packet capture (TCP, UDP, ICMP, ARP, etc.)")
+    print("  • 🔬 Fake UDP traffic generator for testing")
+    print("  • 📊 Real-time visualization & analytics")
+    print("=" * 70)
     print("🌐 Access dashboard at: http://localhost:5000")
-    print("=" * 60)
+    print("=" * 70)
+    print("⚠️  Note: GeoIP lookups use ip-api.com (45 requests/minute limit)")
+    print("=" * 70)
     
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
