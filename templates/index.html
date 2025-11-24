@@ -547,6 +547,133 @@
         .protocol-icmp { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
         .protocol-other { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
+        /* Tab System */
+        .tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            color: #e2e8f0;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #60a5fa;
+        }
+
+        .tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Small Buttons */
+        .btn-small {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-small.btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-small.btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .btn-small:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Statistics Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(30, 41, 59, 0.8);
+            transform: translateY(-4px);
+        }
+
+        .stat-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        /* History Item */
+        .history-item {
+            background: rgba(30, 41, 59, 0.3);
+            border-left: 4px solid var(--anomaly-color);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .history-item:hover {
+            background: rgba(30, 41, 59, 0.6);
+            transform: translateX(4px);
+        }
+
+        .history-timestamp {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 6px;
+        }
+
+        .history-badge {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -759,7 +886,67 @@
                     <span id="threatScoreText">0</span>
                 </div>
             </div>
-            <div id="anomalyList"></div>
+            
+            <!-- Tab Navigation -->
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid rgba(148, 163, 184, 0.2);">
+                <button class="tab-btn active" data-tab="current">
+                    🔴 Current Anomalies
+                </button>
+                <button class="tab-btn" data-tab="history">
+                    📜 Detection History
+                </button>
+                <button class="tab-btn" data-tab="stats">
+                    📊 Statistics
+                </button>
+            </div>
+            
+            <!-- Current Anomalies Tab -->
+            <div id="currentAnomalies" class="tab-content active">
+                <div id="anomalyList"></div>
+            </div>
+            
+            <!-- History Tab -->
+            <div id="historyAnomalies" class="tab-content" style="display: none;">
+                <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+                    <button id="clearHistoryBtn" class="btn-small btn-danger">
+                        🗑️ Clear History
+                    </button>
+                    <button id="exportHistoryBtn" class="btn-small btn-primary">
+                        📥 Export CSV
+                    </button>
+                    <span style="color: #94a3b8; font-size: 13px; margin-left: auto;">
+                        Total Detections: <strong id="totalDetections">0</strong>
+                    </span>
+                </div>
+                <div id="anomalyHistory" class="data-list" style="max-height: 400px;"></div>
+            </div>
+            
+            <!-- Statistics Tab -->
+            <div id="statsAnomalies" class="tab-content" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🚨</div>
+                        <div class="stat-value" id="criticalCount">0</div>
+                        <div class="stat-label">Critical Threats</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-value" id="warningCount">0</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">ℹ️</div>
+                        <div class="stat-value" id="infoCount">0</div>
+                        <div class="stat-label">Info Alerts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-value" id="avgThreat">0</div>
+                        <div class="stat-label">Avg Threat Score</div>
+                    </div>
+                </div>
+                <canvas id="anomalyTrendChart" style="margin-top: 24px;" height="100"></canvas>
+            </div>
         </div>
 
         <!-- Charts -->
@@ -845,6 +1032,7 @@
                 };
                 this.history = [];
                 this.anomalies = [];
+                this.detectionHistory = [];
                 this.learningPeriod = 30; // seconds
                 this.startTime = Date.now();
             }
@@ -874,69 +1062,87 @@
 
                 // 1. Traffic Spike Detection
                 if (data.pps > this.baseline.avgPps * 3 && data.pps > 100) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'traffic_spike',
                         severity: 'warning',
                         message: `Traffic spike detected: ${data.pps} pps (baseline: ${Math.round(this.baseline.avgPps)} pps)`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 20);
                     threatScore += 20;
                 }
 
                 // 2. Throughput Anomaly
                 if (data.throughput > this.baseline.avgThroughput * 4 && data.throughput > 50000) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'throughput_anomaly',
                         severity: 'warning',
                         message: `Unusual throughput: ${(data.throughput / 1024).toFixed(1)} KB/s`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 15);
                     threatScore += 15;
                 }
 
-                // 3. Port Scan Detection (many unique IPs with low packets each)
+                // 3. Port Scan Detection
                 if (data.uniqueIPs > 20 && data.avgPacketsPerIP < 5) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'port_scan',
                         severity: 'critical',
                         message: `Possible port scan: ${data.uniqueIPs} unique IPs with low packet counts`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 35);
                     threatScore += 35;
                 }
 
                 // 4. UDP Flood Detection
                 const udpPercent = data.protocolDist.UDP || 0;
                 if (udpPercent > 70 && data.pps > 200) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'udp_flood',
                         severity: 'critical',
                         message: `Potential UDP flood: ${udpPercent.toFixed(0)}% UDP traffic at ${data.pps} pps`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 30);
                     threatScore += 30;
                 }
 
                 // 5. Unusual Protocol Mix
                 const protocolCount = Object.keys(data.protocolDist).length;
                 if (protocolCount > 5) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'protocol_anomaly',
                         severity: 'info',
                         message: `Unusual protocol diversity: ${protocolCount} different protocols detected`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 10);
                     threatScore += 10;
                 }
 
                 // 6. Single Source Dominance
                 if (data.topTalkerPercent > 80) {
-                    newAnomalies.push({
+                    const anomaly = {
                         type: 'source_dominance',
                         severity: 'warning',
                         message: `Single source dominance: One IP generating ${data.topTalkerPercent.toFixed(0)}% of traffic`,
-                        time: new Date().toLocaleTimeString()
-                    });
+                        time: new Date().toLocaleTimeString(),
+                        timestamp: now
+                    };
+                    newAnomalies.push(anomaly);
+                    this.addToHistory(anomaly, 25);
                     threatScore += 25;
                 }
 
@@ -948,9 +1154,246 @@
                     threatScore: Math.min(100, threatScore)
                 };
             }
+
+            addToHistory(anomaly, threatContribution) {
+                this.detectionHistory.unshift({
+                    ...anomaly,
+                    id: Date.now() + Math.random(),
+                    fullTimestamp: new Date().toLocaleString(),
+                    threatScore: threatContribution
+                });
+                
+                // Keep only last 100 detections
+                if (this.detectionHistory.length > 100) {
+                    this.detectionHistory.pop();
+                }
+                
+                // Update history display
+                updateHistoryDisplay();
+                updateStatistics();
+
+                // Update the anomaly trend chart using the exact detection timestamp
+                // (use the fullTimestamp so the x-axis shows when the detection occurred)
+                try {
+                    updateAnomalyTrend(threatContribution, this.detectionHistory[0].fullTimestamp);
+                } catch (e) {
+                    console.warn('Anomaly trend update skipped (chart not ready)', e);
+                }
+            }
+
+            clearHistory() {
+                this.detectionHistory = [];
+                updateHistoryDisplay();
+                updateStatistics();
+            }
+
+            exportHistory() {
+                if (this.detectionHistory.length === 0) {
+                    alert('No detection history to export');
+                    return;
+                }
+
+                const csv = [
+                    ['Timestamp', 'Type', 'Severity', 'Message', 'Threat Score'],
+                    ...this.detectionHistory.map(h => [
+                        h.fullTimestamp,
+                        h.type,
+                        h.severity,
+                        h.message,
+                        h.threatScore
+                    ])
+                ].map(row => row.join(',')).join('\n');
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `netlab-anomaly-history-${new Date().toISOString()}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
         }
 
         const anomalyDetector = new AnomalyDetector();
+
+        // Anomaly Trend Chart
+        let anomalyTrendChart = null;
+        const anomalyTrendData = {
+            times: [],
+            scores: []
+        };
+
+        function initAnomalyTrendChart() {
+            const ctx = document.getElementById('anomalyTrendChart');
+            if (!ctx) return;
+
+            anomalyTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Threat Score',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { 
+                            display: true,
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateAnomalyTrend(threatScore, timeLabel = null) {
+            // Use provided label (detection timestamp) or fallback to current time
+            const time = timeLabel || new Date().toLocaleTimeString();
+
+            anomalyTrendData.times.push(time);
+            anomalyTrendData.scores.push(threatScore);
+
+            // Keep last 20 data points
+            if (anomalyTrendData.times.length > 20) {
+                anomalyTrendData.times.shift();
+                anomalyTrendData.scores.shift();
+            }
+
+            if (anomalyTrendChart) {
+                anomalyTrendChart.data.labels = anomalyTrendData.times;
+                anomalyTrendChart.data.datasets[0].data = anomalyTrendData.scores;
+                anomalyTrendChart.update('none');
+            }
+        }
+
+        function updateHistoryDisplay() {
+            const historyContainer = document.getElementById('anomalyHistory');
+            if (!historyContainer) return;
+
+            if (anomalyDetector.detectionHistory.length === 0) {
+                historyContainer.innerHTML = '<div style="color: #94a3b8; padding: 40px; text-align: center;">📭 No detections recorded yet</div>';
+                return;
+            }
+
+            historyContainer.innerHTML = anomalyDetector.detectionHistory.map(h => `
+                <div class="history-item" style="--anomaly-color: ${
+                    h.severity === 'critical' ? '#ef4444' :
+                    h.severity === 'warning' ? '#fbbf24' : '#60a5fa'
+                }">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span class="history-badge anomaly-${h.severity}">
+                                ${h.severity.toUpperCase()}
+                            </span>
+                            <span style="font-size: 11px; color: #64748b;">
+                                ${h.type.replace(/_/g, ' ').toUpperCase()}
+                            </span>
+                        </div>
+                        <div style="color: #e2e8f0; font-size: 14px;">${h.message}</div>
+                        <div class="history-timestamp">${h.fullTimestamp}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 20px; font-weight: 700; color: ${
+                            h.threatScore > 30 ? '#ef4444' : h.threatScore > 15 ? '#fbbf24' : '#60a5fa'
+                        }">
+                            +${h.threatScore}
+                        </div>
+                        <div style="font-size: 11px; color: #64748b;">threat</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update total count
+            document.getElementById('totalDetections').textContent = anomalyDetector.detectionHistory.length;
+        }
+
+        function updateStatistics() {
+            const history = anomalyDetector.detectionHistory;
+            
+            const criticalCount = history.filter(h => h.severity === 'critical').length;
+            const warningCount = history.filter(h => h.severity === 'warning').length;
+            const infoCount = history.filter(h => h.severity === 'info').length;
+            
+            const avgThreat = history.length > 0 
+                ? Math.round(history.reduce((sum, h) => sum + h.threatScore, 0) / history.length)
+                : 0;
+
+            document.getElementById('criticalCount').textContent = criticalCount;
+            document.getElementById('warningCount').textContent = warningCount;
+            document.getElementById('infoCount').textContent = infoCount;
+            document.getElementById('avgThreat').textContent = avgThreat;
+        }
+
+        // Tab switching and initialization
+        function setupTabsAndCharts() {
+            // Initialize anomaly trend chart
+            initAnomalyTrendChart();
+
+            // Tab buttons
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and contents
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.style.display = 'none');
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Show corresponding content
+                    if (tabName === 'current') {
+                        document.getElementById('currentAnomalies').style.display = 'block';
+                    } else if (tabName === 'history') {
+                        document.getElementById('historyAnomalies').style.display = 'block';
+                    } else if (tabName === 'stats') {
+                        document.getElementById('statsAnomalies').style.display = 'block';
+                    }
+                });
+            });
+
+            // Clear history button
+            document.getElementById('clearHistoryBtn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear all detection history?')) {
+                    anomalyDetector.clearHistory();
+                    alert('Detection history cleared!');
+                }
+            });
+
+            // Export history button
+            document.getElementById('exportHistoryBtn').addEventListener('click', function() {
+                anomalyDetector.exportHistory();
+            });
+        }
+
+        // Initialize on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupTabsAndCharts);
+        } else {
+            setupTabsAndCharts();
+        }
 
         // GeoIP Mock Database (in production, use real API like ip-api.com)
         const geoIPDatabase = {
@@ -1253,6 +1696,9 @@
             document.getElementById('threatScoreText').textContent = aiResult.threatScore;
             document.getElementById('threatBarFill').style.width = aiResult.threatScore + '%';
 
+            // NOTE: removed the periodic updateAnomalyTrend(aiResult.threatScore) call here
+            // so the trend chart only records points when a detection is added to history.
+            
             // Display anomalies
             const anomalyList = document.getElementById('anomalyList');
             if (aiResult.anomalies.length === 0) {

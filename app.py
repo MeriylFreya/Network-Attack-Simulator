@@ -7,6 +7,54 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import socket
 
+# Prefer the 'requests' package but fall back to urllib if it's not available
+try:
+    import requests
+except Exception as e:
+    print(f"Warning: requests not available, using urllib as fallback. Error: {e}")
+    import urllib.request
+    import urllib.error
+    import json as _json
+
+    class _Response:
+        def __init__(self, status_code, content):
+            self.status_code = status_code
+            self._content = content
+
+        def json(self):
+            try:
+                return _json.loads(self._content.decode('utf-8'))
+            except Exception:
+                return {}
+
+        @property
+        def text(self):
+            try:
+                return self._content.decode('utf-8')
+            except Exception:
+                return ""
+
+    def _requests_get(url, timeout=2):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                data = resp.read()
+                return _Response(resp.getcode(), data)
+        except urllib.error.HTTPError as e2:
+            try:
+                data = e2.read()
+            except Exception:
+                data = b''
+            return _Response(getattr(e2, 'code', 500), data)
+        except Exception:
+            # Network error or timeout: return a response-like object with status 0
+            return _Response(0, b'{}')
+
+    class _RequestsFallback:
+        get = staticmethod(_requests_get)
+
+    # Provide a requests-like object so existing code can call requests.get(...)
+    requests = _RequestsFallback()
+
 # Optional: scapy for real packet capture
 try:
     from scapy.all import sniff, IP, TCP, UDP, ICMP, ARP
@@ -327,12 +375,14 @@ def on_start_generator(data):
     global generator_running
     print(f"[API] Start generator request received: {data}")
     
+    # Reset stop_event to ensure generator can run
+    stop_event.clear()
+    
     if generator_running:
         print("[API] Generator already running")
         emit('generator_status', {'running': True})
         return
     
-    stop_event.clear()
     target = data.get('target', '127.0.0.1')
     pps = int(data.get('pps', 300))
     size = int(data.get('size', 200))
