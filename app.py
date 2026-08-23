@@ -444,20 +444,5 @@ def on_get_geoip(data):
 if __name__ == '__main__':
     # Start emitter
     threading.Thread(target=emitter_loop, daemon=True).start()
-    
-    print("=" * 70)
-    print("🚀 NetLab Pro Advanced - AI-Powered Network Intelligence Platform")
-    print("=" * 70)
-    print("✨ Features:")
-    print("  • 🤖 AI Anomaly Detection - Machine learning threat detection")
-    print("  • 🌍 GeoIP Attack Mapping - Global traffic visualization")
-    print("  • 📡 Real packet capture (TCP, UDP, ICMP, ARP, etc.)")
-    print("  • 🔬 Fake UDP traffic generator for testing")
-    print("  • 📊 Real-time visualization & analytics")
-    print("=" * 70)
-    print("🌐 Access dashboard at: http://localhost:5000")
-    print("=" * 70)
-    print("⚠️  Note: GeoIP lookups use ip-api.com (45 requests/minute limit)")
-    print("=" * 70)
-    
+
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)

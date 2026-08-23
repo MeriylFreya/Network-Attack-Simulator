@@ -21,3 +21,13 @@ NetLab Pro Advanced is a powerful tool that helps you see what is happening on y
 - Chart.js for displaying charts and graphs.
 - D3.js and TopoJSON for creating the interactive world map.
 - HTML, CSS, and JavaScript for the user interface.
+
+## Project Structure
+
+```text
+dos attack simulator/
+├── app.py
+├── README.md
+└── templates/
+	└── index.html
+```
